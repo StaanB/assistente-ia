@@ -15,14 +15,7 @@ type RequestAssistantResponseArgs = {
 type ChatHandler = (args: RequestAssistantResponseArgs) => Promise<AssistantMessage>;
 
 const MOCK_RESPONSE_DELAY_MS = 1200;
-
-const huggingFaceConfig = {
-  spaceUrl: process.env.NEXT_PUBLIC_HUGGING_FACE_SPACE_URL,
-  apiKey: process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY,
-};
-
-const shouldUseMockAdapter =
-  !huggingFaceConfig.spaceUrl || !huggingFaceConfig.apiKey || process.env.NEXT_PUBLIC_ASSISTANT_USE_MOCK === "true";
+const shouldUseMockAdapter = process.env.NEXT_PUBLIC_ASSISTANT_USE_MOCK !== "false";
 
 const waitFor = (delay: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
@@ -71,51 +64,48 @@ const mockHandler: ChatHandler = async ({ prompt, language, signal }) => {
   await waitFor(MOCK_RESPONSE_DELAY_MS, signal);
 
   const shouldTranslateToEnglish = language === "en-US";
-  const translatedMessage = shouldTranslateToEnglish
-    ? 'Mocked response for "' + prompt + '". We will connect to the real AI model soon.'
-    : 'Resposta mockada para "' + prompt + '". Em breve, conectaremos com o modelo de IA real.';
 
   return {
     id: createMessageId(),
     role: "assistant",
-    content: translatedMessage,
+    content: shouldTranslateToEnglish
+      ? `Mocked response for "${prompt}". We will connect to the real AI model soon.`
+      : `Resposta mockada para "${prompt}". Em breve, conectaremos com o modelo de IA real.`,
   };
 };
 
-const huggingFaceHandler: ChatHandler = async ({ prompt, signal }) => {
-  if (!huggingFaceConfig.spaceUrl || !huggingFaceConfig.apiKey) {
-    return mockHandler({ prompt, language: "pt-BR", signal });
-  }
-
-  const response = await fetch(huggingFaceConfig.spaceUrl, {
+const apiHandler: ChatHandler = async ({ prompt, language, signal }) => {
+  const response = await fetch("/api/assistant", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer " + huggingFaceConfig.apiKey,
     },
-    body: JSON.stringify({ inputs: prompt }),
+    body: JSON.stringify({ prompt, language }),
     signal,
   });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch assistant response (status " + response.status + ")");
+    throw new Error(`Failed to fetch assistant response (status ${response.status})`);
   }
 
-  const data = await response.json();
-  const generatedText = Array.isArray(data) ? data[0]?.generated_text : data?.generated_text ?? data?.text;
+  const data: unknown = await response.json();
+  const message =
+    typeof data === "object" && data !== null && typeof (data as { message?: unknown }).message === "string"
+      ? ((data as { message: string }).message || "").trim()
+      : null;
 
-  if (typeof generatedText !== "string" || generatedText.trim().length === 0) {
+  if (!message) {
     throw new Error("Assistant response payload is empty");
   }
 
   return {
     id: createMessageId(),
     role: "assistant",
-    content: generatedText.trim(),
+    content: message,
   };
 };
 
-const activeHandler: ChatHandler = shouldUseMockAdapter ? mockHandler : huggingFaceHandler;
+const activeHandler: ChatHandler = shouldUseMockAdapter ? mockHandler : apiHandler;
 
 export const requestAssistantResponse: ChatHandler = async (args) => {
   try {
