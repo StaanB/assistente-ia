@@ -33,6 +33,12 @@ const huggingFaceConfig = {
 const shouldUseMockAdapter =
   !huggingFaceConfig.spaceUrl || process.env.NEXT_PUBLIC_ASSISTANT_USE_MOCK === "true";
 
+const logDebug = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(...args);
+  }
+};
+
 const waitFor = (delay: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     if (delay <= 0) {
@@ -116,6 +122,12 @@ const backendHandler: ChatHandler = async ({
     return mockHandler({ prompt, language, history, signal, onStreamToken });
   }
 
+  logDebug("[assistantAdapter] sending chat request", {
+    language,
+    historySize: history.length,
+    hasSignal: Boolean(signal),
+  });
+
   const response = await fetch(resolveChatEndpoint(huggingFaceConfig.spaceUrl), {
     method: "POST",
     headers: {
@@ -133,6 +145,8 @@ const backendHandler: ChatHandler = async ({
   if (!response.ok) {
     throw new Error("Failed to fetch assistant response (status " + response.status + ")");
   }
+
+  logDebug("[assistantAdapter] chat request accepted", response.status);
 
   if (!response.body) {
     const fallbackText = await response.text();
@@ -194,6 +208,7 @@ export const requestAssistantResponse: ChatHandler = async (args) => {
   try {
     return await activeHandler(args);
   } catch (error) {
+    logDebug("[assistantAdapter] chat request failed", error);
     if (!shouldUseMockAdapter && error instanceof Error) {
       console.error("Assistant adapter failed, falling back to mock handler:", error.message);
       return mockHandler(args);
