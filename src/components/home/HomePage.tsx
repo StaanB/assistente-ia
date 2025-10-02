@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import LanguageSwitcher, { LanguageCode } from "@/components/common/LanguageSwitcher";
+import { requestAssistantResponse } from "@/services/assistantAdapter";
 
 const quickPromptsByLanguage: Record<LanguageCode, string[]> = {
   "pt-BR": [
@@ -25,8 +26,6 @@ type ChatMessage = {
   content: string;
 };
 
-const ASSISTANT_RESPONSE_DELAY_MS = 1200;
-
 const createMessageId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -46,7 +45,7 @@ function HomePage() {
   const [language, setLanguage] = useState<LanguageCode>("pt-BR");
 
   const conversationContainerRef = useRef<HTMLDivElement | null>(null);
-  const pendingResponseTimeoutRef = useRef<number | null>(null);
+  const pendingResponseAbortControllerRef = useRef<AbortController | null>(null);
 
   const translate = useMemo(() => makeTranslate(language), [language]);
   const quickPromptOptions = quickPromptsByLanguage[language];
@@ -65,13 +64,11 @@ function HomePage() {
 
   useEffect(() => {
     return () => {
-      if (pendingResponseTimeoutRef.current !== null) {
-        window.clearTimeout(pendingResponseTimeoutRef.current);
-      }
+      pendingResponseAbortControllerRef.current?.abort();
     };
   }, []);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!hasPrompt || isAssistantThinking) {
@@ -90,28 +87,42 @@ function HomePage() {
     ]);
 
     setPrompt("");
+    pendingResponseAbortControllerRef.current?.abort();
+
+    const abortController = new AbortController();
+    pendingResponseAbortControllerRef.current = abortController;
     setIsAssistantThinking(true);
 
-    if (pendingResponseTimeoutRef.current !== null) {
-      window.clearTimeout(pendingResponseTimeoutRef.current);
-    }
+    try {
+      const assistantMessage = await requestAssistantResponse({
+        prompt: cleanedPrompt,
+        language,
+        signal: abortController.signal,
+      });
 
-    pendingResponseTimeoutRef.current = window.setTimeout(() => {
+      setMessages((previousMessages) => [...previousMessages, assistantMessage]);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+
       setMessages((previousMessages) => [
         ...previousMessages,
         {
           id: createMessageId(),
           role: "assistant",
           content: translate(
-            `Resposta mockada para "${cleanedPrompt}". Em breve, conectaremos com o modelo de IA real.`,
-            `Mocked response for "${cleanedPrompt}". We will connect to the real AI model soon.`,
+            "Não consegui obter uma resposta agora. Tente novamente em instantes.",
+            "I couldn't fetch a response right now. Please try again shortly.",
           ),
         },
       ]);
-
-      setIsAssistantThinking(false);
-      pendingResponseTimeoutRef.current = null;
-    }, ASSISTANT_RESPONSE_DELAY_MS);
+    } finally {
+      if (pendingResponseAbortControllerRef.current === abortController) {
+        pendingResponseAbortControllerRef.current = null;
+        setIsAssistantThinking(false);
+      }
+    }
   };
 
   const handleQuickPrompt = (value: string) => {
