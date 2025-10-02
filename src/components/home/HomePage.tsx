@@ -2,12 +2,22 @@
 
 import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import LanguageSwitcher, { LanguageCode } from "@/components/common/LanguageSwitcher";
 
-export const quickPrompts = [
-  "Como você funciona?",
-  "Quem é Stanley?",
-  "Onde Stanley trabalhou?",
-];
+const quickPromptsByLanguage: Record<LanguageCode, string[]> = {
+  "pt-BR": [
+    "Como você funciona?",
+    "Quem é Stanley?",
+    "Onde Stanley trabalhou?",
+  ],
+  "en-US": [
+    "How do you work?",
+    "Who is Stanley?",
+    "Where has Stanley worked?",
+  ],
+};
+
+export const quickPrompts = quickPromptsByLanguage["pt-BR"];
 
 type ChatMessage = {
   id: string;
@@ -25,14 +35,21 @@ const createMessageId = () => {
   return Math.random().toString(36).slice(2);
 };
 
+const makeTranslate = (language: LanguageCode) => {
+  return (pt: string, en: string) => (language === "pt-BR" ? pt : en);
+};
+
 function HomePage() {
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAssistantThinking, setIsAssistantThinking] = useState(false);
+  const [language, setLanguage] = useState<LanguageCode>("pt-BR");
 
   const conversationContainerRef = useRef<HTMLDivElement | null>(null);
   const pendingResponseTimeoutRef = useRef<number | null>(null);
 
+  const translate = useMemo(() => makeTranslate(language), [language]);
+  const quickPromptOptions = quickPromptsByLanguage[language];
   const hasPrompt = useMemo(() => prompt.trim().length > 0, [prompt]);
   const isConversationActive = messages.length > 0;
 
@@ -85,7 +102,10 @@ function HomePage() {
         {
           id: createMessageId(),
           role: "assistant",
-          content: `Resposta mockada para "${cleanedPrompt}". Em breve, conectaremos com o modelo de IA real.`,
+          content: translate(
+            `Resposta mockada para "${cleanedPrompt}". Em breve, conectaremos com o modelo de IA real.`,
+            `Mocked response for "${cleanedPrompt}". We will connect to the real AI model soon.`,
+          ),
         },
       ]);
 
@@ -98,8 +118,33 @@ function HomePage() {
     setPrompt(value);
   };
 
+  const handleLanguageChange = (selectedLanguage: LanguageCode) => {
+    setLanguage(selectedLanguage);
+  };
+
+  const inputLabel = translate("Digite sua pergunta", "Type your question");
+  const conversationPlaceholder = translate(
+    "Pergunte algo para a Stanley IA...",
+    "Ask something to Stanley AI...",
+  );
+  const initialPlaceholder = translate(
+    "Digite sua pergunta aqui...",
+    "Type your question here...",
+  );
+  const submitLabel = translate("Enviar pergunta", "Send question");
+  const typingLabel = translate("Stanley IA está digitando", "Stanley AI is typing");
+  const assistantGreeting = translate(
+    "Olá! Sou a Stanley IA, assistente pessoal do Stanley. Estou aqui para te ajudar a conhecer o Stanley, responder perguntas sobre ele.",
+    "Hi! I'm Stanley AI, Stanley's personal assistant. I'm here to help you get to know Stanley and answer questions about him.",
+  );
+  const assistantHeading = translate("Stanley IA", "Stanley AI");
+  const assistantRoleLabel = translate("Assistente de IA", "AI assistant");
+
   return (
-    <div className="flex min-h-screen flex-col bg-background px-4 py-16 text-foreground">
+    <div className="relative flex min-h-screen flex-col bg-background px-4 py-16 text-foreground">
+      <div className="absolute right-4 top-4 sm:right-8 sm:top-8">
+        <LanguageSwitcher onLanguageChange={handleLanguageChange} />
+      </div>
       <main className="flex w-full flex-1 flex-col items-center">
         {isConversationActive ? (
           <section className="flex w-full max-w-4xl flex-1 flex-col gap-6 lg:max-w-5xl">
@@ -130,7 +175,7 @@ function HomePage() {
                 {isAssistantThinking && (
                   <div className="flex w-full justify-start">
                     <div className="inline-flex items-center gap-3 rounded-3xl border border-[rgba(255,255,255,0.05)] bg-surface-strong px-4 py-3 text-sm text-muted">
-                      <span className="sr-only">Stanley IA está digitando</span>
+                      <span className="sr-only">{typingLabel}</span>
                       <span aria-hidden className="typing-indicator">
                         <span />
                         <span />
@@ -149,14 +194,14 @@ function HomePage() {
             >
               <div className="flex w-full items-center gap-2 rounded-full border border-[rgba(255,255,255,0.05)] bg-surface px-4 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition focus-within:border-accent focus-within:shadow-[0_0_0_1px_rgba(255,106,0,0.35)]">
                 <label className="sr-only" htmlFor="prompt">
-                  Digite sua pergunta
+                  {inputLabel}
                 </label>
                 <input
                   autoComplete="off"
                   className="flex-1 bg-transparent text-base outline-none placeholder:text-muted sm:text-lg"
                   id="prompt"
                   name="prompt"
-                  placeholder="Pergunte algo para a Stanley IA..."
+                  placeholder={conversationPlaceholder}
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                 />
@@ -166,7 +211,7 @@ function HomePage() {
                   disabled={!hasPrompt || isAssistantThinking}
                   type="submit"
                 >
-                  <span className="sr-only">Enviar pergunta</span>
+                  <span className="sr-only">{submitLabel}</span>
                   <svg
                     aria-hidden
                     className="h-5 w-5"
@@ -186,7 +231,7 @@ function HomePage() {
               </div>
 
               <ul className="flex flex-wrap items-center justify-center gap-3">
-                {quickPrompts.map((value) => (
+                {quickPromptOptions.map((value) => (
                   <li key={value}>
                     <button
                       className="rounded-full border border-[rgba(255,255,255,0.05)] bg-surface-strong px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground hover:shadow-[0_0_25px_rgba(255,106,0,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -216,16 +261,16 @@ function HomePage() {
                     src="/images/eu-robo.png"
                     width={160}
                   />
-                  <span className="sr-only">Assistente de IA</span>
+                  <span className="sr-only">{assistantRoleLabel}</span>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-                  Stanley IA
+                  {assistantHeading}
                 </h1>
                 <p className="mx-auto max-w-xl text-base text-muted sm:text-lg">
-                  Olá! Sou a Stanley IA, assistente pessoal do Stanley. Estou aqui para te ajudar a conhecer o Stanley, responder perguntas sobre ele.
+                  {assistantGreeting}
                 </p>
               </div>
             </div>
@@ -237,14 +282,14 @@ function HomePage() {
             >
               <div className="flex w-full items-center gap-2 rounded-full border border-[rgba(255,255,255,0.05)] bg-surface px-4 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition focus-within:border-accent focus-within:shadow-[0_0_0_1px_rgba(255,106,0,0.35)]">
                 <label className="sr-only" htmlFor="prompt">
-                  Digite sua pergunta
+                  {inputLabel}
                 </label>
                 <input
                   autoComplete="off"
                   className="flex-1 bg-transparent text-base outline-none placeholder:text-muted sm:text-lg"
                   id="prompt"
                   name="prompt"
-                  placeholder="Digite sua pergunta aqui..."
+                  placeholder={initialPlaceholder}
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                 />
@@ -254,7 +299,7 @@ function HomePage() {
                   disabled={!hasPrompt || isAssistantThinking}
                   type="submit"
                 >
-                  <span className="sr-only">Enviar pergunta</span>
+                  <span className="sr-only">{submitLabel}</span>
                   <svg
                     aria-hidden
                     className="h-5 w-5"
@@ -274,7 +319,7 @@ function HomePage() {
               </div>
 
               <ul className="flex flex-wrap items-center justify-center gap-3">
-                {quickPrompts.map((value) => (
+                {quickPromptOptions.map((value) => (
                   <li key={value}>
                     <button
                       className="rounded-full border border-[rgba(255,255,255,0.05)] bg-surface-strong px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground hover:shadow-[0_0_25px_rgba(255,106,0,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
