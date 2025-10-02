@@ -75,7 +75,7 @@ const mockHandler: ChatHandler = async ({ prompt, language, signal }) => {
 };
 
 const apiHandler: ChatHandler = async ({ prompt, language, signal }) => {
-  const response = await fetch("/api/assistant", {
+  const response = await fetch("/chat/stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -121,3 +121,4 @@ export const requestAssistantResponse: ChatHandler = async (args) => {
 };
 
 export type { AssistantMessage };
+
