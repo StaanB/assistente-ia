@@ -151,6 +151,25 @@ const backendHandler: ChatHandler = async ({
     throw new Error("Assistant response payload is empty");
   }
 
+  if (finalContent.includes("[STREAM_ERROR]")) {
+    const message = finalContent.split("[STREAM_ERROR]").pop()?.trim();
+    throw new Error(message || "Assistant streaming error");
+  }
+
+  if (finalContent.includes("[STREAM_FALLBACK]")) {
+    const message = finalContent.split("[STREAM_FALLBACK]").pop()?.trim();
+    const fallbackMessage =
+      message && message.length > 0
+        ? message
+        : "Desculpe, não consegui gerar uma resposta agora. Tente novamente em instantes.";
+
+    return {
+      id: createMessageId(),
+      role: "assistant",
+      content: fallbackMessage,
+    };
+  }
+
   return {
     id: createMessageId(),
     role: "assistant",

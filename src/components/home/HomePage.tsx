@@ -83,6 +83,11 @@ function HomePage() {
       content: cleanedPrompt,
     };
     const assistantMessageId = createMessageId();
+    const fallbackAssistantMessage = translate(
+      "Não consegui obter uma resposta agora. Tente novamente em instantes.",
+      "I couldn't fetch a response right now. Please try again shortly.",
+    );
+    let streamStatus: "pending" | "fallback" | "error" = "pending";
 
     setMessages((previousMessages) => [
       ...previousMessages,
@@ -108,6 +113,31 @@ function HomePage() {
             return;
           }
 
+          if (chunk.includes("[STREAM_ERROR]")) {
+            streamStatus = "error";
+            console.error("[assistantAdapter] stream error", chunk);
+            setMessages((previousMessages) =>
+              previousMessages.map((message) =>
+                message.id === assistantMessageId
+                  ? { ...message, content: fallbackAssistantMessage }
+                  : message,
+              ),
+            );
+            return;
+          }
+
+          if (chunk.includes("[STREAM_FALLBACK]")) {
+            streamStatus = "fallback";
+            const sanitizedChunk = chunk.replace("[STREAM_FALLBACK]", "").trim();
+            const content = sanitizedChunk.length > 0 ? sanitizedChunk : fallbackAssistantMessage;
+            setMessages((previousMessages) =>
+              previousMessages.map((message) =>
+                message.id === assistantMessageId ? { ...message, content } : message,
+              ),
+            );
+            return;
+          }
+
           setMessages((previousMessages) =>
             previousMessages.map((message) =>
               message.id === assistantMessageId
@@ -117,6 +147,21 @@ function HomePage() {
           );
         },
       });
+
+      if (streamStatus === "error") {
+        return;
+      }
+
+      if (streamStatus === "fallback") {
+        setMessages((previousMessages) =>
+          previousMessages.map((message) =>
+            message.id === assistantMessageId
+              ? { ...message, content: fallbackAssistantMessage }
+              : message,
+          ),
+        );
+        return;
+      }
 
       setMessages((previousMessages) =>
         previousMessages.map((message) =>
@@ -133,19 +178,15 @@ function HomePage() {
         return;
       }
 
-      setMessages((previousMessages) =>
-        previousMessages.map((message) =>
-          message.id === assistantMessageId
-            ? {
-                ...message,
-                content: translate(
-                  "Não consegui obter uma resposta agora. Tente novamente em instantes.",
-                  "I couldn't fetch a response right now. Please try again shortly.",
-                ),
-              }
-            : message,
-        ),
-      );
+      if (streamStatus !== "error") {
+        setMessages((previousMessages) =>
+          previousMessages.map((message) =>
+            message.id === assistantMessageId
+              ? { ...message, content: fallbackAssistantMessage }
+              : message,
+          ),
+        );
+      }
     } finally {
       if (pendingResponseAbortControllerRef.current === abortController) {
         pendingResponseAbortControllerRef.current = null;
