@@ -172,7 +172,7 @@ const backendHandler: ChatHandler = async ({
 
   const sanitizedContent = finalContent
     .replace(/<\/?s>/gi, "")
-    .replace(/\[\/?(ASS|SYS|USR)\]/gi, "")
+    .replace(/\[\/?(ASS|ASSISTANT|SYS|SYSTEM|USR|USER|INST)\]/gi, "")
     .replace(/^\s+/, "")
     .trim();
 
