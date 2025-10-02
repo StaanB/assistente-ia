@@ -76,14 +76,18 @@ function HomePage() {
     }
 
     const cleanedPrompt = prompt.trim();
+    const historyPayload = messages.map(({ role, content }) => ({ role, content }));
+    const userMessage: ChatMessage = {
+      id: createMessageId(),
+      role: "user",
+      content: cleanedPrompt,
+    };
+    const assistantMessageId = createMessageId();
 
     setMessages((previousMessages) => [
       ...previousMessages,
-      {
-        id: createMessageId(),
-        role: "user",
-        content: cleanedPrompt,
-      },
+      userMessage,
+      { id: assistantMessageId, role: "assistant", content: "" },
     ]);
 
     setPrompt("");
@@ -97,26 +101,51 @@ function HomePage() {
       const assistantMessage = await requestAssistantResponse({
         prompt: cleanedPrompt,
         language,
+        history: historyPayload,
         signal: abortController.signal,
+        onStreamToken: (chunk) => {
+          if (!chunk) {
+            return;
+          }
+
+          setMessages((previousMessages) =>
+            previousMessages.map((message) =>
+              message.id === assistantMessageId
+                ? { ...message, content: message.content + chunk }
+                : message,
+            ),
+          );
+        },
       });
 
-      setMessages((previousMessages) => [...previousMessages, assistantMessage]);
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === assistantMessageId
+            ? { ...assistantMessage, id: assistantMessageId }
+            : message,
+        ),
+      );
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
+        setMessages((previousMessages) =>
+          previousMessages.filter((message) => message.id !== assistantMessageId),
+        );
         return;
       }
 
-      setMessages((previousMessages) => [
-        ...previousMessages,
-        {
-          id: createMessageId(),
-          role: "assistant",
-          content: translate(
-            "Não consegui obter uma resposta agora. Tente novamente em instantes.",
-            "I couldn't fetch a response right now. Please try again shortly.",
-          ),
-        },
-      ]);
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === assistantMessageId
+            ? {
+                ...message,
+                content: translate(
+                  "Não consegui obter uma resposta agora. Tente novamente em instantes.",
+                  "I couldn't fetch a response right now. Please try again shortly.",
+                ),
+              }
+            : message,
+        ),
+      );
     } finally {
       if (pendingResponseAbortControllerRef.current === abortController) {
         pendingResponseAbortControllerRef.current = null;

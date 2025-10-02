@@ -6,10 +6,17 @@ type AssistantMessage = {
   content: string;
 };
 
+type ChatHistoryItem = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 type RequestAssistantResponseArgs = {
   prompt: string;
   language: LanguageCode;
+  history: ChatHistoryItem[];
   signal?: AbortSignal;
+  onStreamToken?: (chunk: string) => void;
 };
 
 type ChatHandler = (args: RequestAssistantResponseArgs) => Promise<AssistantMessage>;
@@ -17,12 +24,14 @@ type ChatHandler = (args: RequestAssistantResponseArgs) => Promise<AssistantMess
 const MOCK_RESPONSE_DELAY_MS = 1200;
 
 const huggingFaceConfig = {
-  spaceUrl: process.env.NEXT_PUBLIC_HUGGING_FACE_SPACE_URL,
-  apiKey: process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY,
+  spaceUrl:
+    process.env.NEXT_PUBLIC_HUGGING_FACE_SPACE_URL ?? process.env.HUGGING_FACE_SPACE_URL,
+  apiKey:
+    process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY ?? process.env.HUGGING_FACE_API_KEY,
 };
 
 const shouldUseMockAdapter =
-  !huggingFaceConfig.spaceUrl || !huggingFaceConfig.apiKey || process.env.NEXT_PUBLIC_ASSISTANT_USE_MOCK === "true";
+  !huggingFaceConfig.spaceUrl || process.env.NEXT_PUBLIC_ASSISTANT_USE_MOCK === "true";
 
 const waitFor = (delay: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
@@ -67,13 +76,17 @@ const createMessageId = () => {
   return Math.random().toString(36).slice(2);
 };
 
-const mockHandler: ChatHandler = async ({ prompt, language, signal }) => {
+const mockHandler: ChatHandler = async ({ prompt, language, signal, onStreamToken }) => {
   await waitFor(MOCK_RESPONSE_DELAY_MS, signal);
 
   const shouldTranslateToEnglish = language === "en-US";
   const translatedMessage = shouldTranslateToEnglish
     ? 'Mocked response for "' + prompt + '". We will connect to the real AI model soon.'
     : 'Resposta mockada para "' + prompt + '". Em breve, conectaremos com o modelo de IA real.';
+
+  if (onStreamToken) {
+    onStreamToken(translatedMessage);
+  }
 
   return {
     id: createMessageId(),
@@ -82,18 +95,38 @@ const mockHandler: ChatHandler = async ({ prompt, language, signal }) => {
   };
 };
 
-const huggingFaceHandler: ChatHandler = async ({ prompt, signal }) => {
-  if (!huggingFaceConfig.spaceUrl || !huggingFaceConfig.apiKey) {
-    return mockHandler({ prompt, language: "pt-BR", signal });
+const resolveChatEndpoint = (baseUrl: string) => {
+  const trimmed = baseUrl.trim();
+
+  if (trimmed.endsWith("/chat/stream")) {
+    return trimmed;
   }
 
-  const response = await fetch(huggingFaceConfig.spaceUrl, {
+  return trimmed.replace(/\/$/, "") + "/chat/stream";
+};
+
+const backendHandler: ChatHandler = async ({
+  prompt,
+  language,
+  history,
+  signal,
+  onStreamToken,
+}) => {
+  if (!huggingFaceConfig.spaceUrl) {
+    return mockHandler({ prompt, language, history, signal, onStreamToken });
+  }
+
+  const response = await fetch(resolveChatEndpoint(huggingFaceConfig.spaceUrl), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer " + huggingFaceConfig.apiKey,
+      ...(huggingFaceConfig.apiKey ? { "x-api-key": huggingFaceConfig.apiKey } : {}),
     },
-    body: JSON.stringify({ inputs: prompt }),
+    body: JSON.stringify({
+      message: prompt,
+      lang: language,
+      history,
+    }),
     signal,
   });
 
@@ -101,21 +134,61 @@ const huggingFaceHandler: ChatHandler = async ({ prompt, signal }) => {
     throw new Error("Failed to fetch assistant response (status " + response.status + ")");
   }
 
-  const data = await response.json();
-  const generatedText = Array.isArray(data) ? data[0]?.generated_text : data?.generated_text ?? data?.text;
+  if (!response.body) {
+    const fallbackText = await response.text();
+    throw new Error(
+      "Assistant response stream is not available" + (fallbackText ? ": " + fallbackText : ""),
+    );
+  }
 
-  if (typeof generatedText !== "string" || generatedText.trim().length === 0) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let assistantContent = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    if (!value) {
+      continue;
+    }
+
+    const chunk = decoder.decode(value, { stream: true });
+
+    if (!chunk) {
+      continue;
+    }
+
+    const markerIndex = chunk.indexOf("[STREAM_ERROR]");
+
+    if (markerIndex !== -1) {
+      const message = chunk.slice(markerIndex + "[STREAM_ERROR]".length).trim();
+      throw new Error(message || "Assistant streaming error");
+    }
+
+    assistantContent += chunk;
+    onStreamToken?.(chunk);
+  }
+
+  assistantContent += decoder.decode();
+
+  const finalContent = assistantContent.trim();
+
+  if (!finalContent) {
     throw new Error("Assistant response payload is empty");
   }
 
   return {
     id: createMessageId(),
     role: "assistant",
-    content: generatedText.trim(),
+    content: finalContent,
   };
 };
 
-const activeHandler: ChatHandler = shouldUseMockAdapter ? mockHandler : huggingFaceHandler;
+const activeHandler: ChatHandler = shouldUseMockAdapter ? mockHandler : backendHandler;
 
 export const requestAssistantResponse: ChatHandler = async (args) => {
   try {
