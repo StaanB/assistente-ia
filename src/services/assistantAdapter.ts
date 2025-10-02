@@ -34,9 +34,7 @@ const shouldUseMockAdapter =
   !huggingFaceConfig.spaceUrl || process.env.NEXT_PUBLIC_ASSISTANT_USE_MOCK === "true";
 
 const logDebug = (...args: unknown[]) => {
-  if (process.env.NODE_ENV !== "production") {
     console.log(...args);
-  }
 };
 
 const waitFor = (delay: number, signal?: AbortSignal) =>
