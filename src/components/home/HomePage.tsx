@@ -84,13 +84,12 @@ function HomePage() {
     };
     const assistantMessageId = createMessageId();
 
-    if (process.env.NODE_ENV !== "production") {
+   
       console.log("[HomePage] submitting prompt", {
         cleanedPrompt,
         historySize: historyPayload.length,
         language,
       });
-    }
 
     setMessages((previousMessages) => [
       ...previousMessages,
