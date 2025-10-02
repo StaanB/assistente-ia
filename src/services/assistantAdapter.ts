@@ -170,10 +170,16 @@ const backendHandler: ChatHandler = async ({
     };
   }
 
+  const sanitizedContent = finalContent
+    .replace(/<\/?s>/gi, "")
+    .replace(/\[\/?(ASS|SYS|USR)\]/gi, "")
+    .replace(/^\s+/, "")
+    .trim();
+
   return {
     id: createMessageId(),
     role: "assistant",
-    content: finalContent,
+    content: sanitizedContent.length > 0 ? sanitizedContent : finalContent,
   };
 };
 
