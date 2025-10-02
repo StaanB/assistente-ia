@@ -23,19 +23,7 @@ type ChatHandler = (args: RequestAssistantResponseArgs) => Promise<AssistantMess
 
 const MOCK_RESPONSE_DELAY_MS = 1200;
 
-const huggingFaceConfig = {
-  spaceUrl:
-    process.env.NEXT_PUBLIC_HUGGING_FACE_SPACE_URL ?? process.env.HUGGING_FACE_SPACE_URL,
-  apiKey:
-    process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY ?? process.env.HUGGING_FACE_API_KEY,
-};
-
-const shouldUseMockAdapter =
-  !huggingFaceConfig.spaceUrl || process.env.NEXT_PUBLIC_ASSISTANT_USE_MOCK === "true";
-
-const logDebug = (...args: unknown[]) => {
-    console.log(...args);
-};
+const shouldUseMockAdapter = process.env.NEXT_PUBLIC_ASSISTANT_USE_MOCK !== "false";
 
 const waitFor = (delay: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
@@ -99,16 +87,6 @@ const mockHandler: ChatHandler = async ({ prompt, language, signal, onStreamToke
   };
 };
 
-const resolveChatEndpoint = (baseUrl: string) => {
-  const trimmed = baseUrl.trim();
-
-  if (trimmed.endsWith("/chat/stream")) {
-    return trimmed;
-  }
-
-  return trimmed.replace(/\/$/, "") + "/chat/stream";
-};
-
 const backendHandler: ChatHandler = async ({
   prompt,
   language,
@@ -116,21 +94,10 @@ const backendHandler: ChatHandler = async ({
   signal,
   onStreamToken,
 }) => {
-  if (!huggingFaceConfig.spaceUrl) {
-    return mockHandler({ prompt, language, history, signal, onStreamToken });
-  }
-
-  logDebug("[assistantAdapter] sending chat request", {
-    language,
-    historySize: history.length,
-    hasSignal: Boolean(signal),
-  });
-
-  const response = await fetch(resolveChatEndpoint(huggingFaceConfig.spaceUrl), {
+  const response = await fetch("/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(huggingFaceConfig.apiKey ? { "x-api-key": huggingFaceConfig.apiKey } : {}),
     },
     body: JSON.stringify({
       message: prompt,
@@ -143,8 +110,6 @@ const backendHandler: ChatHandler = async ({
   if (!response.ok) {
     throw new Error("Failed to fetch assistant response (status " + response.status + ")");
   }
-
-  logDebug("[assistantAdapter] chat request accepted", response.status);
 
   if (!response.body) {
     const fallbackText = await response.text();
@@ -174,13 +139,6 @@ const backendHandler: ChatHandler = async ({
       continue;
     }
 
-    const markerIndex = chunk.indexOf("[STREAM_ERROR]");
-
-    if (markerIndex !== -1) {
-      const message = chunk.slice(markerIndex + "[STREAM_ERROR]".length).trim();
-      throw new Error(message || "Assistant streaming error");
-    }
-
     assistantContent += chunk;
     onStreamToken?.(chunk);
   }
@@ -200,15 +158,15 @@ const backendHandler: ChatHandler = async ({
   };
 };
 
-const activeHandler: ChatHandler = shouldUseMockAdapter ? mockHandler : backendHandler;
-
 export const requestAssistantResponse: ChatHandler = async (args) => {
   try {
-    return await activeHandler(args);
+    return shouldUseMockAdapter ? await mockHandler(args) : await backendHandler(args);
   } catch (error) {
-    logDebug("[assistantAdapter] chat request failed", error);
-    if (!shouldUseMockAdapter && error instanceof Error) {
-      console.error("Assistant adapter failed, falling back to mock handler:", error.message);
+    if (error instanceof Error) {
+      console.error("Assistant adapter failed:", error.message);
+    }
+
+    if (!shouldUseMockAdapter) {
       return mockHandler(args);
     }
 

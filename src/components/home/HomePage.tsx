@@ -84,13 +84,6 @@ function HomePage() {
     };
     const assistantMessageId = createMessageId();
 
-   
-      console.log("[HomePage] submitting prompt", {
-        cleanedPrompt,
-        historySize: historyPayload.length,
-        language,
-      });
-
     setMessages((previousMessages) => [
       ...previousMessages,
       userMessage,
