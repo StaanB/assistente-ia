@@ -236,35 +236,40 @@ function HomePage() {
                 className="flex h-full min-h-[460px] flex-col gap-4 overflow-y-auto px-6 py-6 sm:min-h-[520px]"
                 role="log"
               >
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex w-full ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm sm:text-base ${
-                        message.role === "user"
-                          ? "bg-accent text-background shadow-[0_12px_30px_rgba(255,106,0,0.35)]"
-                          : "border border-[rgba(255,255,255,0.05)] bg-surface-strong text-foreground"
-                      }`}
-                    >
-                      {message.content}
-                    </div>
-                  </div>
-                ))}
+                {messages.map((message) => {
+                  const isUserMessage = message.role === "user";
+                  const isTypingMessage = message.role === "assistant" && message.content.length === 0;
 
-                {isAssistantThinking && (
-                  <div className="flex w-full justify-start">
-                    <div className="inline-flex items-center gap-3 rounded-3xl border border-[rgba(255,255,255,0.05)] bg-surface-strong px-4 py-3 text-sm text-muted">
-                      <span className="sr-only">{typingLabel}</span>
-                      <span aria-hidden className="typing-indicator">
-                        <span />
-                        <span />
-                        <span />
-                      </span>
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex w-full ${isUserMessage ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm sm:text-base ${
+                          isUserMessage
+                            ? "bg-accent text-background shadow-[0_12px_30px_rgba(255,106,0,0.35)]"
+                            : isTypingMessage
+                              ? "inline-flex items-center gap-3 border border-[rgba(255,255,255,0.05)] bg-surface-strong text-muted"
+                              : "border border-[rgba(255,255,255,0.05)] bg-surface-strong text-foreground"
+                        }`}
+                      >
+                        {isTypingMessage ? (
+                          <>
+                            <span className="sr-only">{typingLabel}</span>
+                            <span aria-hidden className="typing-indicator">
+                              <span />
+                              <span />
+                              <span />
+                            </span>
+                          </>
+                        ) : (
+                          message.content
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
             </div>
 
