@@ -87,7 +87,7 @@ function HomePage() {
       "Não consegui obter uma resposta agora. Tente novamente em instantes.",
       "I couldn't fetch a response right now. Please try again shortly.",
     );
-    let streamStatus: "pending" | "fallback" | "error" = "pending";
+    let streamStatus: "fallback" | "error" | null = null;
 
     setMessages((previousMessages) => [
       ...previousMessages,
