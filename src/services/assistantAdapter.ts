@@ -74,8 +74,10 @@ const mockHandler: ChatHandler = async ({ prompt, language, signal }) => {
   };
 };
 
+const ASSISTANT_API_URL = process.env.NEXT_PUBLIC_ASSISTANT_API_URL || "/api/assistant";
+
 const apiHandler: ChatHandler = async ({ prompt, language, signal }) => {
-  const response = await fetch("/chat/stream", {
+  const response = await fetch(ASSISTANT_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
