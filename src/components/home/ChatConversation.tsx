@@ -1,4 +1,5 @@
 import { RefObject } from "react";
+import { toLinkedHtml } from "@/utils/autoLink";
 
 import type { ChatMessage } from "@/utils/chat";
 
@@ -33,13 +34,12 @@ function ChatConversation({
               className={`flex w-full ${isUserMessage ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm sm:text-base ${
-                  isUserMessage
+                className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm sm:text-base ${isUserMessage
                     ? "bg-accent text-background shadow-[0_12px_30px_rgba(255,106,0,0.35)]"
                     : isTypingMessage
                       ? "inline-flex items-center gap-3 border border-[rgba(255,255,255,0.05)] bg-surface-strong text-muted"
                       : "border border-[rgba(255,255,255,0.05)] bg-surface-strong text-foreground"
-                }`}
+                  }`}
               >
                 {isTypingMessage ? (
                   <>
@@ -51,7 +51,10 @@ function ChatConversation({
                     </span>
                   </>
                 ) : (
-                  message.content
+                  <span
+                    className="whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{ __html: toLinkedHtml(message.content) }}
+                  />
                 )}
               </div>
             </div>
