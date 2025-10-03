@@ -4,6 +4,7 @@ import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import LanguageSwitcher, { LanguageCode } from "@/components/common/LanguageSwitcher";
 import ChatConversation from "@/components/home/ChatConversation";
+import PromptForm from "@/components/home/PromptForm";
 import { requestAssistantResponse } from "@/services/assistantAdapter";
 import {
   createMessageId,
@@ -214,48 +215,17 @@ function HomePage() {
               typingLabel={copy.typingLabel}
             />
 
-            <form
-              className="w-full space-y-5"
-              noValidate
-              onSubmit={handleSubmit}
-            >
-              <div className="flex w-full items-center gap-2 rounded-full border border-[rgba(255,255,255,0.05)] bg-surface px-4 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition focus-within:border-accent focus-within:shadow-[0_0_0_1px_rgba(255,106,0,0.35)]">
-                <label className="sr-only" htmlFor="prompt">
-                  {copy.inputLabel}
-                </label>
-                <input
-                  autoComplete="off"
-                  className="flex-1 bg-transparent text-base outline-none placeholder:text-muted sm:text-lg"
-                  id="prompt"
-                  name="prompt"
-                  placeholder={copy.conversationPlaceholder}
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                />
-                <button
-                  aria-disabled={!hasPrompt || isAssistantThinking}
-                  className="grid h-12 w-12 cursor-pointer place-items-center rounded-full bg-accent text-background shadow-[0_16px_40px_rgba(255,106,0,0.45)] transition hover:bg-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={!hasPrompt || isAssistantThinking}
-                  type="submit"
-                >
-                  <span className="sr-only">{copy.submitLabel}</span>
-                  <svg
-                    aria-hidden
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M4 12h16m-6-6 6 6-6 6"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                    />
-                  </svg>
-                </button>
-              </div>
+            <div className="w-full space-y-5">
+              <PromptForm
+                hasPrompt={hasPrompt}
+                inputLabel={copy.inputLabel}
+                isAssistantThinking={isAssistantThinking}
+                placeholder={copy.conversationPlaceholder}
+                prompt={prompt}
+                submitLabel={copy.submitLabel}
+                onChange={setPrompt}
+                onSubmit={handleSubmit}
+              />
 
               <ul className="flex flex-wrap items-center justify-center gap-3">
                 {quickPromptOptions.map((value) => (
@@ -270,7 +240,7 @@ function HomePage() {
                   </li>
                 ))}
               </ul>
-            </form>
+            </div>
           </section>
         ) : (
           <section className="flex w-full max-w-3xl flex-col items-center gap-12 text-center">
@@ -302,48 +272,17 @@ function HomePage() {
               </div>
             </div>
 
-            <form
-              className="w-full space-y-5"
-              noValidate
-              onSubmit={handleSubmit}
-            >
-              <div className="flex w-full items-center gap-2 rounded-full border border-[rgba(255,255,255,0.05)] bg-surface px-4 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition focus-within:border-accent focus-within:shadow-[0_0_0_1px_rgba(255,106,0,0.35)]">
-                <label className="sr-only" htmlFor="prompt">
-                  {copy.inputLabel}
-                </label>
-                <input
-                  autoComplete="off"
-                  className="flex-1 bg-transparent text-base outline-none placeholder:text-muted sm:text-lg"
-                  id="prompt"
-                  name="prompt"
-                  placeholder={copy.initialPlaceholder}
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                />
-                <button
-                  aria-disabled={!hasPrompt || isAssistantThinking}
-                  className="grid h-12 w-12 cursor-pointer place-items-center rounded-full bg-accent text-background shadow-[0_16px_40px_rgba(255,106,0,0.45)] transition hover:bg-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={!hasPrompt || isAssistantThinking}
-                  type="submit"
-                >
-                  <span className="sr-only">{copy.submitLabel}</span>
-                  <svg
-                    aria-hidden
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M4 12h16m-6-6 6 6-6 6"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                    />
-                  </svg>
-                </button>
-              </div>
+            <div className="w-full space-y-5">
+              <PromptForm
+                hasPrompt={hasPrompt}
+                inputLabel={copy.inputLabel}
+                isAssistantThinking={isAssistantThinking}
+                placeholder={copy.initialPlaceholder}
+                prompt={prompt}
+                submitLabel={copy.submitLabel}
+                onChange={setPrompt}
+                onSubmit={handleSubmit}
+              />
 
               <ul className="flex flex-wrap items-center justify-center gap-3">
                 {quickPromptOptions.map((value) => (
@@ -358,7 +297,7 @@ function HomePage() {
                   </li>
                 ))}
               </ul>
-            </form>
+            </div>
           </section>
         )}
       </main>
