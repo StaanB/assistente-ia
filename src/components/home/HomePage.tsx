@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import LanguageSwitcher, { LanguageCode } from "@/components/common/LanguageSwitcher";
 import ChatConversation from "@/components/home/ChatConversation";
 import PromptForm from "@/components/home/PromptForm";
 import { requestAssistantResponse } from "@/services/assistantAdapter";
+import { useConversationLifecycle } from "@/hooks/useConversationLifecycle";
 import {
   createMessageId,
   trimChatHistory,
@@ -40,7 +41,7 @@ function HomePage() {
   const [language, setLanguage] = useState<LanguageCode>("pt-BR");
 
   const conversationContainerRef = useRef<HTMLDivElement | null>(null);
-  const pendingResponseAbortControllerRef = useRef<AbortController | null>(null);
+  const promptInputRef = useRef<HTMLInputElement | null>(null);
 
   const translate = useMemo(() => makeTranslate(language), [language]);
   const copy = useMemo(() => getHomeCopy(language), [language]);
@@ -48,21 +49,11 @@ function HomePage() {
   const hasPrompt = useMemo(() => prompt.trim().length > 0, [prompt]);
   const isConversationActive = messages.length > 0;
 
-  useEffect(() => {
-    const container = conversationContainerRef.current;
-
-    if (!container) {
-      return;
-    }
-
-    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-  }, [messages, isAssistantThinking]);
-
-  useEffect(() => {
-    return () => {
-      pendingResponseAbortControllerRef.current?.abort();
-    };
-  }, []);
+  const { beginStreaming, finalizeStreaming, scrollToBottom } = useConversationLifecycle({
+    containerRef: conversationContainerRef,
+    messages,
+    isAssistantThinking,
+  });
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -93,10 +84,14 @@ function HomePage() {
     ]);
 
     setPrompt("");
-    pendingResponseAbortControllerRef.current?.abort();
-
-    const abortController = new AbortController();
-    pendingResponseAbortControllerRef.current = abortController;
+    scrollToBottom("auto");
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        promptInputRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+        promptInputRef.current?.focus();
+      });
+    }
+    const abortController = beginStreaming();
     setIsAssistantThinking(true);
 
     try {
@@ -185,10 +180,8 @@ function HomePage() {
         );
       }
     } finally {
-      if (pendingResponseAbortControllerRef.current === abortController) {
-        pendingResponseAbortControllerRef.current = null;
-        setIsAssistantThinking(false);
-      }
+      finalizeStreaming(abortController);
+      setIsAssistantThinking(false);
     }
   };
 
@@ -220,6 +213,7 @@ function HomePage() {
                 hasPrompt={hasPrompt}
                 inputLabel={copy.inputLabel}
                 isAssistantThinking={isAssistantThinking}
+                inputRef={promptInputRef}
                 placeholder={copy.conversationPlaceholder}
                 prompt={prompt}
                 submitLabel={copy.submitLabel}
@@ -277,6 +271,7 @@ function HomePage() {
                 hasPrompt={hasPrompt}
                 inputLabel={copy.inputLabel}
                 isAssistantThinking={isAssistantThinking}
+                inputRef={promptInputRef}
                 placeholder={copy.initialPlaceholder}
                 prompt={prompt}
                 submitLabel={copy.submitLabel}

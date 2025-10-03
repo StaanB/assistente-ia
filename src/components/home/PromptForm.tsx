@@ -1,4 +1,4 @@
-import { FormEvent } from "react";
+import { FormEvent, MutableRefObject } from "react";
 
 type PromptFormProps = {
   prompt: string;
@@ -9,6 +9,7 @@ type PromptFormProps = {
   submitLabel: string;
   onChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  inputRef?: MutableRefObject<HTMLInputElement | null>;
 };
 
 function PromptForm({
@@ -20,6 +21,7 @@ function PromptForm({
   submitLabel,
   onChange,
   onSubmit,
+  inputRef,
 }: PromptFormProps) {
   return (
     <form
@@ -37,6 +39,11 @@ function PromptForm({
           id="prompt"
           name="prompt"
           placeholder={placeholder}
+          ref={(element) => {
+            if (inputRef) {
+              inputRef.current = element;
+            }
+          }}
           value={prompt}
           onChange={(event) => onChange(event.target.value)}
         />
