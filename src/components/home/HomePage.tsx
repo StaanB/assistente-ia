@@ -4,6 +4,12 @@ import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import LanguageSwitcher, { LanguageCode } from "@/components/common/LanguageSwitcher";
 import { requestAssistantResponse } from "@/services/assistantAdapter";
+import {
+  createMessageId,
+  trimChatHistory,
+  type ChatMessage,
+  type HistoryMessage,
+} from "@/utils/chat";
 
 const quickPromptsByLanguage: Record<LanguageCode, string[]> = {
   "pt-BR": [
@@ -19,20 +25,6 @@ const quickPromptsByLanguage: Record<LanguageCode, string[]> = {
 };
 
 export const quickPrompts = quickPromptsByLanguage["pt-BR"];
-
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-};
-
-const createMessageId = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  return Math.random().toString(36).slice(2);
-};
 
 const makeTranslate = (language: LanguageCode) => {
   return (pt: string, en: string) => (language === "pt-BR" ? pt : en);
@@ -76,7 +68,8 @@ function HomePage() {
     }
 
     const cleanedPrompt = prompt.trim();
-    const historyPayload = messages.map(({ role, content }) => ({ role, content }));
+    const historyMessages: HistoryMessage[] = messages.map(({ role, content }) => ({ role, content }));
+    const trimmedHistory = trimChatHistory(historyMessages);
     const userMessage: ChatMessage = {
       id: createMessageId(),
       role: "user",
@@ -106,7 +99,7 @@ function HomePage() {
       const assistantMessage = await requestAssistantResponse({
         prompt: cleanedPrompt,
         language,
-        history: historyPayload,
+        history: trimmedHistory,
         signal: abortController.signal,
         onStreamToken: (chunk) => {
           if (!chunk) {
