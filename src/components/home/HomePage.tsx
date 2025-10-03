@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import LanguageSwitcher, { LanguageCode } from "@/components/common/LanguageSwitcher";
 import ChatConversation from "@/components/home/ChatConversation";
 import PromptForm from "@/components/home/PromptForm";
@@ -42,6 +42,7 @@ function HomePage() {
 
   const conversationContainerRef = useRef<HTMLDivElement | null>(null);
   const promptInputRef = useRef<HTMLInputElement | null>(null);
+  const wasAssistantThinkingRef = useRef(false);
 
   const translate = useMemo(() => makeTranslate(language), [language]);
   const copy = useMemo(() => getHomeCopy(language), [language]);
@@ -54,6 +55,14 @@ function HomePage() {
     messages,
     isAssistantThinking,
   });
+
+  useEffect(() => {
+    if (!isAssistantThinking && wasAssistantThinkingRef.current) {
+      promptInputRef.current?.focus();
+    }
+
+    wasAssistantThinkingRef.current = isAssistantThinking;
+  }, [isAssistantThinking]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,7 +97,6 @@ function HomePage() {
     if (typeof window !== "undefined") {
       window.requestAnimationFrame(() => {
         promptInputRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-        promptInputRef.current?.focus();
       });
     }
     const abortController = beginStreaming();
@@ -186,7 +194,12 @@ function HomePage() {
   };
 
   const handleQuickPrompt = (value: string) => {
+    if (isAssistantThinking) {
+      return;
+    }
+
     setPrompt(value);
+    promptInputRef.current?.focus();
   };
 
   const handleLanguageChange = (selectedLanguage: LanguageCode) => {
@@ -225,7 +238,9 @@ function HomePage() {
                 {quickPromptOptions.map((value) => (
                   <li key={value}>
                     <button
-                      className="cursor-pointer rounded-full border border-[rgba(255,255,255,0.05)] bg-surface-strong px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground hover:shadow-[0_0_25px_rgba(255,106,0,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      aria-disabled={isAssistantThinking}
+                      className="cursor-pointer rounded-full border border-[rgba(255,255,255,0.05)] bg-surface-strong px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground hover:shadow-[0_0_25px_rgba(255,106,0,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isAssistantThinking}
                       onClick={() => handleQuickPrompt(value)}
                       type="button"
                     >
@@ -283,7 +298,9 @@ function HomePage() {
                 {quickPromptOptions.map((value) => (
                   <li key={value}>
                     <button
-                      className="cursor-pointer rounded-full border border-[rgba(255,255,255,0.05)] bg-surface-strong px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground hover:shadow-[0_0_25px_rgba(255,106,0,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      aria-disabled={isAssistantThinking}
+                      className="cursor-pointer rounded-full border border-[rgba(255,255,255,0.05)] bg-surface-strong px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground hover:shadow-[0_0_25px_rgba(255,106,0,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isAssistantThinking}
                       onClick={() => handleQuickPrompt(value)}
                       type="button"
                     >

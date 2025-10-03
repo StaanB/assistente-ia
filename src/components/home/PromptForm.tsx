@@ -23,19 +23,29 @@ function PromptForm({
   onSubmit,
   inputRef,
 }: PromptFormProps) {
+  const containerClassName = [
+    "flex w-full items-center gap-2 rounded-full border border-[rgba(255,255,255,0.05)] bg-surface px-4 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition focus-within:border-accent focus-within:shadow-[0_0_0_1px_rgba(255,106,0,0.35)]",
+    isAssistantThinking ? "opacity-60 cursor-not-allowed" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const inputClassName = "flex-1 bg-transparent text-base outline-none placeholder:text-muted sm:text-lg disabled:cursor-not-allowed";
+
   return (
     <form
       className="w-full space-y-5"
       noValidate
       onSubmit={onSubmit}
     >
-      <div className="flex w-full items-center gap-2 rounded-full border border-[rgba(255,255,255,0.05)] bg-surface px-4 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition focus-within:border-accent focus-within:shadow-[0_0_0_1px_rgba(255,106,0,0.35)]">
+      <div aria-disabled={isAssistantThinking} className={containerClassName}>
         <label className="sr-only" htmlFor="prompt">
           {inputLabel}
         </label>
         <input
           autoComplete="off"
-          className="flex-1 bg-transparent text-base outline-none placeholder:text-muted sm:text-lg"
+          className={inputClassName}
+          disabled={isAssistantThinking}
           id="prompt"
           name="prompt"
           placeholder={placeholder}
