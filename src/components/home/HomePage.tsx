@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import LanguageSwitcher, { LanguageCode } from "@/components/common/LanguageSwitcher";
+import ChatConversation from "@/components/home/ChatConversation";
 import { requestAssistantResponse } from "@/services/assistantAdapter";
 import {
   createMessageId,
@@ -10,6 +11,7 @@ import {
   type ChatMessage,
   type HistoryMessage,
 } from "@/utils/chat";
+import { getHomeCopy } from "@/utils/homeCopy";
 
 const quickPromptsByLanguage: Record<LanguageCode, string[]> = {
   "pt-BR": [
@@ -40,6 +42,7 @@ function HomePage() {
   const pendingResponseAbortControllerRef = useRef<AbortController | null>(null);
 
   const translate = useMemo(() => makeTranslate(language), [language]);
+  const copy = useMemo(() => getHomeCopy(language), [language]);
   const quickPromptOptions = quickPromptsByLanguage[language];
   const hasPrompt = useMemo(() => prompt.trim().length > 0, [prompt]);
   const isConversationActive = messages.length > 0;
@@ -196,24 +199,6 @@ function HomePage() {
     setLanguage(selectedLanguage);
   };
 
-  const inputLabel = translate("Digite sua pergunta", "Type your question");
-  const conversationPlaceholder = translate(
-    "Pergunte algo para a Stanley IA...",
-    "Ask something to Stanley AI...",
-  );
-  const initialPlaceholder = translate(
-    "Digite sua pergunta aqui...",
-    "Type your question here...",
-  );
-  const submitLabel = translate("Enviar pergunta", "Send question");
-  const typingLabel = translate("Stanley IA está digitando", "Stanley AI is typing");
-  const assistantGreeting = translate(
-    "Olá! Sou a Stanley IA, assistente pessoal do Stanley. Estou aqui para te ajudar a conhecer o Stanley, responder perguntas sobre ele.",
-    "Hi! I'm Stanley AI, Stanley's personal assistant. I'm here to help you get to know Stanley and answer questions about him.",
-  );
-  const assistantHeading = translate("Stanley IA", "Stanley AI");
-  const assistantRoleLabel = translate("Assistente de IA", "AI assistant");
-
   return (
     <div className="relative flex min-h-screen flex-col bg-background px-4 py-16 text-foreground">
       <div className="absolute right-4 top-4 sm:right-8 sm:top-8">
@@ -222,49 +207,12 @@ function HomePage() {
       <main className="flex w-full flex-1 flex-col items-center">
         {isConversationActive ? (
           <section className="flex w-full max-w-4xl flex-1 flex-col gap-6 lg:max-w-5xl">
-            <div className="flex-1 overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.05)] bg-surface shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
-              <div
-                ref={conversationContainerRef}
-                aria-live="polite"
-                className="flex h-full min-h-[460px] flex-col gap-4 overflow-y-auto px-6 py-6 sm:min-h-[520px]"
-                role="log"
-              >
-                {messages.map((message) => {
-                  const isUserMessage = message.role === "user";
-                  const isTypingMessage = message.role === "assistant" && message.content.length === 0;
-
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex w-full ${isUserMessage ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm sm:text-base ${
-                          isUserMessage
-                            ? "bg-accent text-background shadow-[0_12px_30px_rgba(255,106,0,0.35)]"
-                            : isTypingMessage
-                              ? "inline-flex items-center gap-3 border border-[rgba(255,255,255,0.05)] bg-surface-strong text-muted"
-                              : "border border-[rgba(255,255,255,0.05)] bg-surface-strong text-foreground"
-                        }`}
-                      >
-                        {isTypingMessage ? (
-                          <>
-                            <span className="sr-only">{typingLabel}</span>
-                            <span aria-hidden className="typing-indicator">
-                              <span />
-                              <span />
-                              <span />
-                            </span>
-                          </>
-                        ) : (
-                          message.content
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <ChatConversation
+              containerRef={conversationContainerRef}
+              isAssistantThinking={isAssistantThinking}
+              messages={messages}
+              typingLabel={copy.typingLabel}
+            />
 
             <form
               className="w-full space-y-5"
@@ -273,14 +221,14 @@ function HomePage() {
             >
               <div className="flex w-full items-center gap-2 rounded-full border border-[rgba(255,255,255,0.05)] bg-surface px-4 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition focus-within:border-accent focus-within:shadow-[0_0_0_1px_rgba(255,106,0,0.35)]">
                 <label className="sr-only" htmlFor="prompt">
-                  {inputLabel}
+                  {copy.inputLabel}
                 </label>
                 <input
                   autoComplete="off"
                   className="flex-1 bg-transparent text-base outline-none placeholder:text-muted sm:text-lg"
                   id="prompt"
                   name="prompt"
-                  placeholder={conversationPlaceholder}
+                  placeholder={copy.conversationPlaceholder}
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                 />
@@ -290,7 +238,7 @@ function HomePage() {
                   disabled={!hasPrompt || isAssistantThinking}
                   type="submit"
                 >
-                  <span className="sr-only">{submitLabel}</span>
+                  <span className="sr-only">{copy.submitLabel}</span>
                   <svg
                     aria-hidden
                     className="h-5 w-5"
@@ -340,16 +288,16 @@ function HomePage() {
                     src="/images/eu-robo.png"
                     width={160}
                   />
-                  <span className="sr-only">{assistantRoleLabel}</span>
+                  <span className="sr-only">{copy.assistantRoleLabel}</span>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-                  {assistantHeading}
+                  {copy.assistantHeading}
                 </h1>
                 <p className="mx-auto max-w-xl text-base text-muted sm:text-lg">
-                  {assistantGreeting}
+                  {copy.assistantGreeting}
                 </p>
               </div>
             </div>
@@ -361,14 +309,14 @@ function HomePage() {
             >
               <div className="flex w-full items-center gap-2 rounded-full border border-[rgba(255,255,255,0.05)] bg-surface px-4 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition focus-within:border-accent focus-within:shadow-[0_0_0_1px_rgba(255,106,0,0.35)]">
                 <label className="sr-only" htmlFor="prompt">
-                  {inputLabel}
+                  {copy.inputLabel}
                 </label>
                 <input
                   autoComplete="off"
                   className="flex-1 bg-transparent text-base outline-none placeholder:text-muted sm:text-lg"
                   id="prompt"
                   name="prompt"
-                  placeholder={initialPlaceholder}
+                  placeholder={copy.initialPlaceholder}
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                 />
@@ -378,7 +326,7 @@ function HomePage() {
                   disabled={!hasPrompt || isAssistantThinking}
                   type="submit"
                 >
-                  <span className="sr-only">{submitLabel}</span>
+                  <span className="sr-only">{copy.submitLabel}</span>
                   <svg
                     aria-hidden
                     className="h-5 w-5"
