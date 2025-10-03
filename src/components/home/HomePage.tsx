@@ -34,11 +34,18 @@ const makeTranslate = (language: LanguageCode) => {
   return (pt: string, en: string) => (language === "pt-BR" ? pt : en);
 };
 
+type BackendHealthStatus = {
+  status: "online" | "offline";
+  model?: string;
+};
+
 function HomePage() {
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAssistantThinking, setIsAssistantThinking] = useState(false);
   const [language, setLanguage] = useState<LanguageCode>("pt-BR");
+
+  const [healthStatus, setHealthStatus] = useState<BackendHealthStatus | null>(null);
 
   const conversationContainerRef = useRef<HTMLDivElement | null>(null);
   const promptInputRef = useRef<HTMLInputElement | null>(null);
@@ -49,6 +56,19 @@ function HomePage() {
   const quickPromptOptions = quickPromptsByLanguage[language];
   const hasPrompt = useMemo(() => prompt.trim().length > 0, [prompt]);
   const isConversationActive = messages.length > 0;
+
+  const healthIndicator = healthStatus
+    ? {
+        label: healthStatus.status === "online" ? copy.statusOnlineLabel : copy.statusOfflineLabel,
+        dotClass:
+          healthStatus.status === "online"
+            ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.65)]"
+            : "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]",
+        tooltip: healthStatus.model
+          ? `${copy.statusTooltipModelPrefix} ${healthStatus.model}`
+          : copy.statusTooltipModelFallback,
+      }
+    : null;
 
   const { beginStreaming, finalizeStreaming, scrollToBottom } = useConversationLifecycle({
     containerRef: conversationContainerRef,
@@ -63,6 +83,52 @@ function HomePage() {
 
     wasAssistantThinkingRef.current = isAssistantThinking;
   }, [isAssistantThinking]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchHealth = async () => {
+      try {
+        const response = await fetch("/api/health", { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error("Health check failed");
+        }
+
+        const data = (await response.json()) as {
+          secured?: boolean;
+          has_hf_token?: boolean;
+          model?: string;
+        };
+
+        const model = data?.model && typeof data.model === "string" && data.model.trim().length > 0
+          ? data.model.trim()
+          : undefined;
+        const isOnline = Boolean(data?.secured) && Boolean(data?.has_hf_token);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setHealthStatus({
+          status: isOnline ? "online" : "offline",
+          model,
+        });
+      } catch (_error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setHealthStatus({ status: "offline" });
+      }
+    };
+
+    fetchHealth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -272,9 +338,25 @@ function HomePage() {
               </div>
 
               <div className="space-y-3">
-                <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-                  {copy.assistantHeading}
-                </h1>
+                <div className="flex items-center justify-center gap-3">
+                  <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+                    {copy.assistantHeading}
+                  </h1>
+                  {healthIndicator ? (
+                    <div
+                      className="group relative inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] bg-surface-strong px-3 py-1 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-foreground"
+                    >
+                      <span
+                        aria-hidden
+                        className={`h-2 w-2 rounded-full ${healthIndicator.dotClass}`}
+                      />
+                      <span>{healthIndicator.label}</span>
+                      <span className="pointer-events-none absolute left-1/2 top-full z-10 hidden w-max -translate-x-1/2 translate-y-2 rounded-md border border-[rgba(255,255,255,0.08)] bg-surface-strong px-3 py-2 text-[11px] leading-tight text-muted shadow-[0_12px_30px_rgba(0,0,0,0.45)] group-hover:block">
+                        {healthIndicator.tooltip}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
                 <p className="mx-auto max-w-xl text-base text-muted sm:text-lg">
                   {copy.assistantGreeting}
                 </p>

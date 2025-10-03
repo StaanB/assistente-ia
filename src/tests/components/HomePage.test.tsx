@@ -4,15 +4,67 @@ import userEvent from "@testing-library/user-event";
 import HomePage, { quickPrompts } from "@/components/home/HomePage";
 
 const originalScrollTo = window.HTMLElement.prototype.scrollTo;
+const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+const originalFetch = global.fetch;
+const mockHealthResponse = (payload: unknown) =>
+  ({
+    ok: true,
+    json: async () => payload,
+  }) as Response;
 
 describe("HomePage", () => {
   beforeAll(() => {
     window.HTMLElement.prototype.scrollTo = jest.fn();
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+  });
+
+  beforeEach(() => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        mockHealthResponse({
+          secured: true,
+          has_hf_token: true,
+          model: "Qwen/Qwen2.5-7B-Instruct",
+        }),
+      );
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    global.fetch = originalFetch;
   });
 
   afterAll(() => {
     window.HTMLElement.prototype.scrollTo = originalScrollTo;
+    window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    global.fetch = originalFetch;
   });
+
+  it("exibe status online quando o backend está seguro e autenticado", async () => {
+    render(<HomePage />);
+
+    expect(await screen.findByText("Online")).toBeInTheDocument();
+    expect(
+      screen.getByText("Modelo: Qwen/Qwen2.5-7B-Instruct"),
+    ).toBeInTheDocument();
+  });
+
+  it(
+    "exibe status offline e mensagem padrão quando o backend não está seguro ou autenticado",
+    async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        mockHealthResponse({ secured: false, has_hf_token: false, model: "" }),
+      );
+
+      render(<HomePage />);
+
+      expect(await screen.findByText("Offline")).toBeInTheDocument();
+      expect(
+        screen.getByText("Modelo indisponível no momento."),
+      ).toBeInTheDocument();
+    },
+  );
 
   it("exibe os prompts rápidos e permite preenchê-los", async () => {
     const user = userEvent.setup();
@@ -63,6 +115,8 @@ describe("HomePage", () => {
 
     try {
       render(<HomePage />);
+
+      await screen.findByText("Online");
 
       const input = screen.getByLabelText("Digite sua pergunta");
       const submitButton = screen.getByRole("button", {

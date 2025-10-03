@@ -9,6 +9,10 @@ type HomeCopy = {
   assistantGreeting: string;
   assistantHeading: string;
   assistantRoleLabel: string;
+  statusOnlineLabel: string;
+  statusOfflineLabel: string;
+  statusTooltipModelPrefix: string;
+  statusTooltipModelFallback: string;
 };
 
 const DEFAULT_LANGUAGE: LanguageCode = "pt-BR";
@@ -24,6 +28,10 @@ const HOME_COPY: Record<LanguageCode, HomeCopy> = {
       "Olá! Sou a Stanley IA, assistente pessoal do Stanley. Estou aqui para te ajudar a conhecer o Stanley, responder perguntas sobre ele.",
     assistantHeading: "Stanley IA",
     assistantRoleLabel: "Assistente de IA",
+    statusOnlineLabel: "Online",
+    statusOfflineLabel: "Offline",
+    statusTooltipModelPrefix: "Modelo:",
+    statusTooltipModelFallback: "Modelo indisponível no momento.",
   },
   "en-US": {
     inputLabel: "Type your question",
@@ -35,6 +43,10 @@ const HOME_COPY: Record<LanguageCode, HomeCopy> = {
       "Hi! I'm Stanley AI, Stanley's personal assistant. I'm here to help you get to know Stanley and answer questions about him.",
     assistantHeading: "Stanley AI",
     assistantRoleLabel: "AI assistant",
+    statusOnlineLabel: "Online",
+    statusOfflineLabel: "Offline",
+    statusTooltipModelPrefix: "Model:",
+    statusTooltipModelFallback: "Model information is unavailable.",
   },
 };
 
