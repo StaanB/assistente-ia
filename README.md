@@ -77,7 +77,6 @@ Deployment Layout
 
 Screenshots & GIFs (placeholders)
 ---------------------------------
-> Replace the image paths below with your exported assets.
 
 **Hero (idle state)**
 ![Hero idle screenshot](docs/screens/hero-idle.png)
