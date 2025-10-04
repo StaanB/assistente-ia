@@ -83,12 +83,15 @@ Screenshots & GIFs (placeholders)
 ![Hero idle screenshot](docs/screens/hero-idle.png)
 
 **Health indicator + model tooltip**
+
 ![Online status screenshot](docs/screens/health-online.png)
 
 **Typing + stream**
+
 ![Streaming screenshot](docs/screens/streaming.png)
 
 **Link rendering / Linkedin example**
+
 ![Autolink screenshot](docs/screens/auto-link.png)
 
 Notes & Constraints
